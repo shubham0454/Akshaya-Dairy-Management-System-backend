@@ -8,6 +8,7 @@
     "build": "tsc",
     "build:vercel": "tsc -p tsconfig.vercel.json",
     "start": "node dist/app.js",
+    "seed": "ts-node src/scripts/seed.ts",
     "test": "jest"
   },
   "keywords": [

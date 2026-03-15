@@ -111,29 +111,34 @@ const swaggerHtml = (specUrl: string) => `<!DOCTYPE html>
 </body>
 </html>`;
 
+function getBaseUrl(req: express.Request): string {
+  const proto = req.get('x-forwarded-proto') || req.protocol;
+  const host = req.get('host') || '';
+  const base = proto && host ? `${proto}://${host}` : `https://${process.env.VERCEL_URL || 'localhost:3000'}`;
+  return base.replace(/\/$/, ''); // no trailing slash
+}
+
 export const setupSwagger = (app: Application): void => {
   const isVercel = process.env.VERCEL === '1';
 
-  // Always expose the spec as JSON (for CDN UI and tools)
-  app.get('/api-docs.json', (_, res) => {
+  // Serve spec with server URL from request so "Try it out" uses correct base (fixes CORS/URL scheme)
+  app.get('/api-docs.json', (req, res) => {
+    const base = getBaseUrl(req);
+    const specWithServer = { ...swaggerSpec, servers: [{ url: base, description: 'This server' }] };
     res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(specWithServer);
   });
 
   if (isVercel) {
     // Vercel: serve HTML that loads Swagger UI from CDN (avoids static asset 404s)
-    const baseUrl = (req: express.Request): string => {
-      const proto = req.get('x-forwarded-proto') || req.protocol;
-      return proto + '://' + req.get('host');
-    };
     app.get('/api-docs', (req, res) => {
       res.setHeader('Content-Type', 'text/html');
-      res.send(swaggerHtml(baseUrl(req) + '/api-docs.json'));
+      res.send(swaggerHtml(getBaseUrl(req) + '/api-docs.json'));
     });
     app.get('/api-docs/', (req, res) => {
-      const base = baseUrl(req);
       res.setHeader('Content-Type', 'text/html');
-      res.send(swaggerHtml(base + '/api-docs.json'));
+      res.send(swaggerHtml(getBaseUrl(req) + '/api-docs.json'));
     });
   } else {
     // Local: use swagger-ui-express (serves assets from node_modules)
