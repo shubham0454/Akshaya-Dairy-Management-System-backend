@@ -1,11 +1,9 @@
 /**
  * Vercel serverless entry: connect DB once, then forward all requests to Express app.
- * Uses process.cwd() so dist/ is found in Vercel's deployment root.
+ * Build outputs to api/dist (npm run build:vercel) so this file and dist/ are bundled together.
  */
 const path = require('path');
-
-const root = process.cwd();
-const distPath = path.join(root, 'dist');
+const distPath = path.join(__dirname, 'dist');
 
 let app;
 let dbPromise;
@@ -15,7 +13,7 @@ function loadApp() {
     const appModule = require(path.join(distPath, 'app'));
     return appModule.default || appModule;
   } catch (e) {
-    console.error('Load app failed:', e.message, 'cwd=', root, 'distPath=', distPath);
+    console.error('Load app failed:', e.message, 'dirname=', __dirname, 'distPath=', distPath);
     throw e;
   }
 }
