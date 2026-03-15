@@ -25,14 +25,19 @@ const connectDB = async (): Promise<void> => {
     });
 
     // Handle process termination
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      logger.info('MongoDB connection closed through app termination');
-      process.exit(0);
-    });
+    if (process.env.VERCEL !== '1') {
+      process.on('SIGINT', async () => {
+        await mongoose.connection.close();
+        logger.info('MongoDB connection closed through app termination');
+        process.exit(0);
+      });
+    }
   } catch (error) {
     logger.error('MongoDB connection error:', error);
-    process.exit(1);
+    if (process.env.VERCEL !== '1') {
+      process.exit(1);
+    }
+    throw error;
   }
 };
 

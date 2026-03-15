@@ -6,7 +6,7 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Akshaya Dairy Management System API',
+      title: 'Proplay – Akshaya Dairy API',
       version: '1.0.0',
       description: 'API documentation for Akshaya Dairy Milk Collection & Management System',
       contact: {
@@ -14,9 +14,12 @@ const options: swaggerJsdoc.Options = {
       },
     },
     servers: [
+      ...(process.env.VERCEL_URL
+        ? [{ url: `https://${process.env.VERCEL_URL}`, description: 'Production (Vercel)' }]
+        : []),
       {
         url: `http://localhost:${process.env.PORT || 3000}`,
-        description: 'Development server',
+        description: process.env.VERCEL_URL ? 'Local' : 'Development server',
       },
     ],
     components: {
@@ -71,7 +74,7 @@ const swaggerSpec = swaggerJsdoc(options);
 export const setupSwagger = (app: Application): void => {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Akshaya Dairy API Documentation',
+    customSiteTitle: 'Proplay API Documentation',
     swaggerOptions: {
       persistAuthorization: true,
       displayRequestDuration: true,

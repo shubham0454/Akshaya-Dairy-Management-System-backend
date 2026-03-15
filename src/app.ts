@@ -32,19 +32,23 @@ const corsOptions = {
     }
     
     const allowedOrigins = [
-      'http://localhost:3000', // Swagger UI
-      'http://localhost:3001', // Admin Panel
-      'http://localhost:3002', // Driver/Center Panel
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
       'http://127.0.0.1:3002',
     ];
-    
-    // In development, allow all origins
+    if (process.env.VERCEL_URL) {
+      allowedOrigins.push(`https://${process.env.VERCEL_URL}`);
+    }
+    // Allow Vercel preview deployments and same host
+    if (origin && (origin.endsWith('.vercel.app') || origin.includes(process.env.VERCEL_URL || ''))) {
+      return callback(null, true);
+    }
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
-    
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -82,21 +86,24 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Akshaya Dairy API is running',
+    message: 'Proplay API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     port: PORT,
   });
 });
 
-// Root endpoint
+// Root endpoint (docs URL works on Vercel via VERCEL_URL)
+const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : `http://localhost:${PORT}`;
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Akshaya Dairy API',
+    message: 'Proplay – Akshaya Dairy API',
     version: '1.0.0',
-    docs: `http://localhost:${PORT}/api-docs`,
-    health: `http://localhost:${PORT}/health`,
+    docs: `${baseUrl}/api-docs`,
+    health: `${baseUrl}/health`,
   });
 });
 
@@ -119,9 +126,9 @@ app.use('/api/reports', reportRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server only if not in test environment
-if (process.env.NODE_ENV !== 'test') {
-  // Initialize database connection
+// Start server only when not on Vercel and not in test
+const isVercel = process.env.VERCEL === '1';
+if (process.env.NODE_ENV !== 'test' && !isVercel) {
   connectDB().then(() => {
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
