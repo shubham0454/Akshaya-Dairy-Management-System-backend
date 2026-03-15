@@ -4,6 +4,11 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "api/dist/**"
+    }
+  },
   "env": {
     "NODE_ENV": "production"
   }
