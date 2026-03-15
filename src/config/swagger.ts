@@ -1,6 +1,13 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
 import { Application } from 'express';
 import swaggerUi from 'swagger-ui-express';
+
+// On Vercel we run from api/dist/ so JSDoc must read compiled .js files; locally use .ts
+const isVercel = process.env.VERCEL === '1';
+const apisPaths = isVercel
+  ? [path.join(__dirname, '..', 'routes', '*.js'), path.join(__dirname, '..', 'controllers', '*.js')]
+  : ['./src/routes/*.ts', './src/controllers/*.ts', './src/**/*.ts'];
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -66,13 +73,17 @@ const options: swaggerJsdoc.Options = {
       },
     ],
   },
-  apis: ['./src/routes/*.ts', './src/controllers/*.ts', './src/**/*.ts'],
+  apis: apisPaths,
 };
 
 const swaggerSpec = swaggerJsdoc(options);
 
 export const setupSwagger = (app: Application): void => {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  const isVercel = process.env.VERCEL === '1';
+  const serveMiddlewares = isVercel
+    ? swaggerUi.serveWithOptions({ redirect: false })
+    : [swaggerUi.serve];
+  app.use('/api-docs', ...serveMiddlewares, swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Proplay API Documentation',
     swaggerOptions: {

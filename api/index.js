@@ -75,8 +75,9 @@ module.exports = async (req, res) => {
     console.error('Serverless handler error:', err.message, err.stack);
     let msg = 'Internal server error';
     const m = (err && err.message) || '';
-    if (m.includes('MongoDB') || m.includes('MONGODB_URI') || m.includes('connection')) {
-      msg = 'Database connection failed. Set MONGODB_URI in Vercel Environment Variables.';
+    if (m.includes('MongoDB') || m.includes('MONGODB_URI') || m.includes('connection') || m.includes('ECONNREFUSED') || m.includes('ENOTFOUND') || m.includes('authentication')) {
+      msg = 'Database connection failed. In MongoDB Atlas: Network Access → add 0.0.0.0/0 (allow from anywhere) so Vercel can connect. Check MONGODB_URI is set for Production.';
+      if (m && m.length < 120) msg += ' Detail: ' + m;
     } else if (m.includes('Cannot find module') || m.includes('MODULE_NOT_FOUND')) {
       msg = 'Build issue: api/dist missing. Check buildCommand is "npm run build:vercel".';
     } else if (m) {
