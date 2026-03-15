@@ -1,0 +1,164 @@
+import { Response } from 'express';
+import logger from '../utils/logger';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { UserRole } from '../models/types';
+import { MilkCollectionModel } from '../models/MilkCollection.model';
+import { DriverModel } from '../models/Driver.model';
+import mongoose from 'mongoose';
+
+export class ReportController {
+  async getCenterCollections(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== UserRole.ADMIN) {
+        res.status(403).json({ success: false, message: 'Only admin can view reports' });
+        return;
+      }
+
+      const { center_id, start_date, end_date } = req.query;
+
+      if (!start_date || !end_date) {
+        res.status(400).json({ success: false, message: 'start_date and end_date are required' });
+        return;
+      }
+
+      const query: any = {
+        collection_date: {
+          $gte: new Date(start_date as string),
+          $lte: new Date(end_date as string),
+        },
+      };
+      if (center_id) {
+        query.vendor_id = new mongoose.Types.ObjectId(center_id as string);
+      }
+
+      const collections = await MilkCollectionModel.find(query)
+        .populate('vendor_id', 'dairy_name')
+        .sort({ collection_date: -1 })
+        .lean();
+
+      const totals = collections.reduce(
+        (acc: any, col: any) => {
+          acc.totalWeight += col.milk_weight || 0;
+          acc.totalAmount += col.total_amount || 0;
+          if (col.collection_time === 'morning') {
+            acc.morningWeight += col.milk_weight || 0;
+          } else {
+            acc.eveningWeight += col.milk_weight || 0;
+          }
+          return acc;
+        },
+        { totalWeight: 0, totalAmount: 0, morningWeight: 0, eveningWeight: 0 }
+      );
+
+      const data = collections.map((c: any) => ({
+        ...c,
+        id: c._id?.toString(),
+        dairy_name: c.vendor_id?.dairy_name,
+      }));
+      data.forEach((d: any) => {
+        delete d._id;
+        delete d.__v;
+      });
+
+      res.json({
+        success: true,
+        data: {
+          collections: data,
+          totals,
+          period: {
+            start_date,
+            end_date,
+            center_id: center_id || null,
+          },
+        },
+      });
+    } catch (error: any) {
+      logger.error('Get center collections error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch collections',
+      });
+    }
+  }
+
+  async getDriverSalary(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== UserRole.ADMIN) {
+        res.status(403).json({ success: false, message: 'Only admin can view driver salary' });
+        return;
+      }
+
+      const { driver_id, start_date, end_date } = req.query;
+
+      if (!driver_id || !start_date || !end_date) {
+        res.status(400).json({
+          success: false,
+          message: 'driver_id, start_date and end_date are required',
+        });
+        return;
+      }
+
+      const driver = await DriverModel.findById(driver_id as string).populate('driver_id');
+
+      if (!driver) {
+        res.status(404).json({ success: false, message: 'Driver not found' });
+        return;
+      }
+
+      const user = driver.driver_id as any;
+      const collections = await MilkCollectionModel.find({
+        driver_id: driver._id,
+        collection_date: {
+          $gte: new Date(start_date as string),
+          $lte: new Date(end_date as string),
+        },
+      })
+        .sort({ collection_date: -1 })
+        .lean();
+
+      const salary = driver.salary_per_month || 0;
+      const daysInPeriod = Math.ceil(
+        (new Date(end_date as string).getTime() - new Date(start_date as string).getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+      const baseSalary = (salary / 30) * daysInPeriod;
+      const overtime = 0;
+      const bonus = 0;
+      const deductions = 0;
+      const finalAmount = baseSalary + overtime + bonus - deductions;
+
+      res.json({
+        success: true,
+        data: {
+          driver: {
+            id: driver._id?.toString(),
+            name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '',
+            mobile: user?.mobile_no,
+            vehicle_number: driver.vehicle_number,
+          },
+          period: {
+            start_date,
+            end_date,
+            days: daysInPeriod,
+          },
+          salary: {
+            baseSalary,
+            overtime,
+            bonus,
+            deductions,
+            finalAmount,
+          },
+          collections: collections.length,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Get driver salary error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch driver salary',
+      });
+    }
+  }
+}
+
+export default new ReportController();
