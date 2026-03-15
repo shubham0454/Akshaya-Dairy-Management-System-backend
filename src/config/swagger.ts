@@ -1,6 +1,6 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import path from 'path';
-import { Application } from 'express';
+import express, { Application } from 'express';
 import swaggerUi from 'swagger-ui-express';
 
 // On Vercel we run from api/dist/ so JSDoc must read compiled .js files; locally use .ts
@@ -78,20 +78,75 @@ const options: swaggerJsdoc.Options = {
 
 const swaggerSpec = swaggerJsdoc(options);
 
+export const getSwaggerSpec = () => swaggerSpec;
+
+const SWAGGER_UI_CDN = 'https://unpkg.com/swagger-ui-dist@5.11.0';
+
+/** HTML page that loads Swagger UI from CDN - works on Vercel where static assets often 404 */
+const swaggerHtml = (specUrl: string) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Proplay API Documentation</title>
+  <link rel="stylesheet" href="${SWAGGER_UI_CDN}/swagger-ui.css" />
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="${SWAGGER_UI_CDN}/swagger-ui-bundle.js" crossorigin></script>
+  <script src="${SWAGGER_UI_CDN}/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script>
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: "${specUrl.replace(/"/g, '\\"')}",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: "StandaloneLayout"
+      });
+    };
+  </script>
+</body>
+</html>`;
+
 export const setupSwagger = (app: Application): void => {
   const isVercel = process.env.VERCEL === '1';
-  const serveMiddlewares = isVercel
-    ? swaggerUi.serveWithOptions({ redirect: false })
-    : [swaggerUi.serve];
-  app.use('/api-docs', ...serveMiddlewares, swaggerUi.setup(swaggerSpec, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Proplay API Documentation',
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-      filter: true,
-      tryItOutEnabled: true,
-    },
-  }));
+
+  // Always expose the spec as JSON (for CDN UI and tools)
+  app.get('/api-docs.json', (_, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+
+  if (isVercel) {
+    // Vercel: serve HTML that loads Swagger UI from CDN (avoids static asset 404s)
+    const baseUrl = (req: express.Request): string => {
+      const proto = req.get('x-forwarded-proto') || req.protocol;
+      return proto + '://' + req.get('host');
+    };
+    app.get('/api-docs', (req, res) => {
+      res.setHeader('Content-Type', 'text/html');
+      res.send(swaggerHtml(baseUrl(req) + '/api-docs.json'));
+    });
+    app.get('/api-docs/', (req, res) => {
+      const base = baseUrl(req);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(swaggerHtml(base + '/api-docs.json'));
+    });
+  } else {
+    // Local: use swagger-ui-express (serves assets from node_modules)
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'Proplay API Documentation',
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        tryItOutEnabled: true,
+      },
+    }));
+  }
 };
 
