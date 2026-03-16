@@ -396,6 +396,8 @@ export class MilkService {
       net_price?: number;
       old_base_price?: number;
       old_net_price?: number;
+      milk_weight?: number;
+      quality_notes?: string;
     },
     modifiedBy: string
   ): Promise<MilkCollection> {
@@ -408,6 +410,9 @@ export class MilkService {
       modified_by: new mongoose.Types.ObjectId(modifiedBy),
     };
 
+    if (updateData.milk_weight !== undefined) {
+      updateFields.milk_weight = updateData.milk_weight;
+    }
     if (updateData.fat_percentage !== undefined) {
       updateFields.fat_percentage = updateData.fat_percentage;
     }
@@ -419,6 +424,11 @@ export class MilkService {
     }
     if (updateData.total_amount !== undefined) {
       updateFields.total_amount = updateData.total_amount;
+    } else if (updateData.milk_weight !== undefined && updateData.rate_per_liter !== undefined) {
+      updateFields.total_amount = Math.round(updateData.milk_weight * updateData.rate_per_liter * 100) / 100;
+    }
+    if (updateData.quality_notes !== undefined) {
+      updateFields.quality_notes = updateData.quality_notes;
     }
     if (updateData.base_value !== undefined) {
       if (existing.base_value && existing.base_value !== updateData.base_value) {
