@@ -27,19 +27,22 @@ export const registerSchema = Joi.object({
   last_name: Joi.string().optional(),
 });
 
+// MongoDB ObjectId is 24 hex chars; UUID is 36 with dashes. Accept both for ids from DB.
+const objectIdOrUuid = Joi.string().required().min(1).max(100);
+
 export const milkCollectionSchema = Joi.object({
-  // vendor_id: Joi.string().uuid().required(), // Commented out - using center_id only, will be set automatically
-  center_id: Joi.string().uuid().required(),
+  center_id: objectIdOrUuid,
   collection_date: Joi.date().required(),
   collection_time: Joi.string().valid('morning', 'evening').required(),
   milk_type: Joi.string().valid('cow', 'buffalo', 'mix_milk').required(),
   milk_weight: Joi.number().positive().required(),
-  fat_percentage: Joi.number().min(0).max(100).optional(), // Made optional - not needed if rate_per_liter is provided
-  snf_percentage: Joi.number().min(0).max(100).optional(), // Made optional - not needed if rate_per_liter is provided
-  rate_per_liter: Joi.number().positive().optional(), // Allow direct entry of rate per liter
+  fat_percentage: Joi.number().min(0).max(100).optional(),
+  snf_percentage: Joi.number().min(0).max(100).optional(),
+  rate_per_liter: Joi.number().positive().optional(),
   can_number: Joi.string().optional(),
   can_weight_kg: Joi.number().positive().optional(),
   quality_notes: Joi.string().optional(),
+  driver_id: Joi.string().optional(), // Admin can pass driver_id when creating collection
 });
 
 export const driverLocationSchema = Joi.object({
@@ -63,7 +66,7 @@ export const milkPriceSchema = Joi.object({
 });
 
 export const paymentSchema = Joi.object({
-  vendor_id: Joi.string().uuid().required(),
+  vendor_id: objectIdOrUuid, // Center/vendor id from DB (MongoDB ObjectId or UUID)
   payment_type: Joi.string().valid('monthly_milk', 'driver_salary', 'advance', 'adjustment').required(),
   payment_month: Joi.date().optional(),
   total_amount: Joi.number().positive().required(),

@@ -78,9 +78,18 @@ export class MilkController {
         offset: parseInt(req.query.offset as string) || 0,
       };
 
-      // Role-based filtering
+      // Role-based filtering: driver_id in DB is Driver document _id, not User id
       if (req.user.role === 'driver') {
-        filters.driver_id = req.user.userId;
+        const { DriverModel } = await import('../models/Driver.model');
+        const mongoose = (await import('mongoose')).default;
+        const driverRecord = await DriverModel.findOne({
+          driver_id: new mongoose.Types.ObjectId(req.user.userId),
+        });
+        if (driverRecord) {
+          filters.driver_id = driverRecord._id.toString();
+        } else {
+          filters.driver_id = req.user.userId; // fallback
+        }
       } else if (req.user.role === 'vendor') {
         const { DairyCenterModel } = await import('../models/DairyCenter.model');
         const mongoose = (await import('mongoose')).default;
