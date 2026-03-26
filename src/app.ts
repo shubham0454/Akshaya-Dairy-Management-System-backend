@@ -17,6 +17,7 @@ import paymentRoutes from './routes/payment.routes';
 import milkCollectionAdminRoutes from './routes/milk-collection-admin.routes';
 import reportRoutes from './routes/report.routes';
 import centerMilkPriceRoutes from './routes/center-milk-price.routes';
+import annualBonusRoutes from './routes/annual-bonus.routes';
 
 dotenv.config();
 
@@ -121,6 +122,7 @@ app.use('/api/driver-admin', driverAdminRoutes);
 app.use('/api/centers', dairyCenterRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/annual-bonus', annualBonusRoutes);
 
 // Error handling
 app.use(notFoundHandler);
